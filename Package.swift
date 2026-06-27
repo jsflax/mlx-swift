@@ -111,10 +111,8 @@ let cmlx = Target.target(
         // vendor docs
         "vendor-README.md",
 
-        // example code + mlx-c distributed
+        // example code (jsflax distributed fork: the mlx-c distributed wrappers are BUILT)
         "mlx-c/examples",
-        "mlx-c/mlx/c/distributed.cpp",
-        "mlx-c/mlx/c/distributed_group.cpp",
 
         // vendored library, include header only
         "json",
@@ -190,9 +188,11 @@ let cmlx = Target.target(
         "mlx/mlx/backend/metal/kernels",
         "mlx/mlx/backend/metal/nojit_kernels.cpp",
 
-        // do not build distributed support (yet)
+        // jsflax distributed fork: the ring (TCP/Thunderbolt) backend is BUILT. Exclude the
+        // no_ring stub instead — no_ring.cpp + ring.cpp define the same ring::is_available()/
+        // init() symbols, so building both = duplicate-symbol link error.
         "mlx/mlx/distributed/mpi/mpi.cpp",
-        "mlx/mlx/distributed/ring/ring.cpp",
+        "mlx/mlx/distributed/ring/no_ring.cpp",
         "mlx/mlx/distributed/nccl/nccl.cpp",
         "mlx/mlx/distributed/nccl/nccl_stub",
         "mlx/mlx/distributed/jaccl/jaccl.cpp",
