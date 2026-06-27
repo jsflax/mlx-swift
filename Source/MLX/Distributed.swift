@@ -165,6 +165,44 @@ public final class DistributedGroup {
         self.init(group)
     }
 
+    /// Form a ring distributed group from an explicit, programmatically-supplied host list —
+    /// no caller-set environment required.
+    ///
+    /// The MLX ring backend has no programmatic host API: it reads a JSON hostfile path from
+    /// `MLX_HOSTFILE` and this process's rank from `MLX_RANK` at init time (ring.cpp). Each ring
+    /// participant forms the group ONCE at startup in a fresh process, so this initializer
+    /// materializes a temporary hostfile from `hosts` and sets those two variables IN-PROCESS
+    /// immediately before init. The topology therefore comes from `hosts` (e.g. a discovery roster)
+    /// rather than a user-facing / spawn-time environment variable.
+    ///
+    /// - Parameters:
+    ///   - hosts: one `"ip:port"` per rank, in rank order (rank 0 is the listener — list it first).
+    ///   - rank: this process's rank within `hosts`.
+    public convenience init(ringHosts hosts: [String], rank: Int) throws {
+        guard hosts.count >= 2 else {
+            throw DistributedError.invalidConfiguration(
+                "ringHosts needs at least 2 entries (got \(hosts.count)).")
+        }
+        guard hosts.indices.contains(rank) else {
+            throw DistributedError.invalidConfiguration(
+                "rank \(rank) out of range for \(hosts.count) hosts.")
+        }
+        // Hostfile is a JSON list of nodes; each node is a list of addresses (we use one each).
+        let json = "[" + hosts.map { "[\"\($0)\"]" }.joined(separator: ",") + "]"
+        let pid = ProcessInfo.processInfo.processIdentifier
+        let tmp = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mlx_ring_\(pid)_rank\(rank).json")
+        do {
+            try json.write(to: tmp, atomically: true, encoding: .utf8)
+        } catch {
+            throw DistributedError.invalidConfiguration(
+                "failed to write ring hostfile \(tmp.path): \(error)")
+        }
+        setenv("MLX_HOSTFILE", tmp.path, 1)
+        setenv("MLX_RANK", String(rank), 1)
+        try self.init(strict: .ring)
+    }
+
     deinit {
         // UPSTREAM GAP: mlx_distributed_group is a value type wrapping a
         // heap-allocated C++ Group object (void* ctx). Other MLX-C handle
