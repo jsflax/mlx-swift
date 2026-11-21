@@ -86,7 +86,9 @@ public func scaledDotProductAttention(
 ///   - stream: stream or device to evaluate on
 @available(*, deprecated, message: "rmsNorm is now available in the main MLX module")
 @_disfavoredOverload
-public func rmsNorm(_ x: MLXArray, weight: MLXArray, eps: Float, stream: StreamOrDevice = .default)
+public func rmsNorm(
+    _ x: MLXArray, weight: MLXArray? = nil, eps: Float, stream: StreamOrDevice = .default
+)
     -> MLXArray
 {
     return MLXFast.rmsNorm(x, weight: weight, eps: eps, stream: stream)

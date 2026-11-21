@@ -669,7 +669,12 @@ open class Module {
                 // - var modules: [TransformerBlock]
                 //      - recurse into
 
-                switch values.first {
+                // Pipeline-sharded arrays carry index-preserving `.none` holes for non-local
+                // layers, so `values.first` can be a hole — pick the branch from the first REAL
+                // element (the holes are handled per-element in each branch). Mirrors the hole
+                // tolerance `update(parameters:)` already has.
+                let firstReal = values.first { if case .none = $0 { return false } else { return true } }
+                switch firstReal {
                 case .value:
                     // update array
                     var newModules = [Module]()
@@ -710,6 +715,11 @@ open class Module {
                         switch (i, v) {
                         case (.value(.module(let m)), .dictionary(let d)):
                             try m.update(modules: NestedDictionary(values: d), verify: verify)
+
+                        case (.none, _), (_, .none):
+                            // pipeline-sharded hole: this layer index is nil on this rank (or has no
+                            // module update) — nothing to replace, leave it as-is.
+                            break
 
                         default:
                             throw UpdateError.mismatchedContainers(
